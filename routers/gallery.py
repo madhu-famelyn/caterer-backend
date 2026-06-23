@@ -1,3 +1,4 @@
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -32,16 +33,16 @@ def get_gallery(
     target_caterer_id = caterer_id
     if target_caterer_id is None and token:
         try:
-            payload = security.jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+            payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
             caterer_id_str = payload.get("sub")
             if caterer_id_str:
                 target_caterer_id = int(caterer_id_str)
         except Exception:
             pass
-            
+
     if target_caterer_id is None:
         raise HTTPException(status_code=400, detail="caterer_id is required or authenticate as a vendor.")
-        
+
     return db.query(models.GalleryItem).filter(models.GalleryItem.caterer_id == target_caterer_id).all()
 
 

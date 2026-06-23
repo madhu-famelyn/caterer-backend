@@ -1,10 +1,15 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from fastapi.staticfiles import StaticFiles
 import models, security
 from database import engine, SessionLocal
-from routers import caterers, auth, licenses, certifications, awards, gallery, reviews
+from routers import caterers, auth, licenses, certifications, awards, gallery, reviews, upload
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+ADMIN_URL = os.getenv("ADMIN_URL", "http://localhost:5174")
 
 # Initialize Database tables
 models.Base.metadata.create_all(bind=engine)
@@ -19,14 +24,20 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        FRONTEND_URL,
+        ADMIN_URL,
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
         "http://localhost:5178",
         "http://localhost:5179",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:5177",
         "http://127.0.0.1:5178",
         "http://127.0.0.1:5179",
     ],
@@ -43,6 +54,11 @@ app.include_router(certifications.router)
 app.include_router(awards.router)
 app.include_router(gallery.router)
 app.include_router(reviews.router)
+app.include_router(upload.router)
+
+# Mount uploads static directory
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/")

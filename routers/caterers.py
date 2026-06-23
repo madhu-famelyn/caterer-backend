@@ -59,6 +59,7 @@ def register_caterer(payload: schemas.CatererCreate, db: Session = Depends(get_d
         bio=payload.bio,
         price_per_guest=payload.price_per_guest,
         service_tags=tags_str,
+        image_url=payload.image_url,
         verified=False,
         rating=0.0,
         review_count=0,
@@ -67,6 +68,57 @@ def register_caterer(payload: schemas.CatererCreate, db: Session = Depends(get_d
     db.commit()
     db.refresh(caterer)
     return caterer_to_out(caterer)
+
+
+# ── Bulk Register (POST /bulk) ───────────────────────────────────────────────
+
+@router.post("/bulk", response_model=schemas.BulkUploadResponse, status_code=status.HTTP_201_CREATED)
+def bulk_register_caterers(payload: List[schemas.CatererCreate], db: Session = Depends(get_db)):
+    created = []
+    errors = []
+
+    for item in payload:
+        # Check duplicate email
+        existing = db.query(models.Caterer).filter(models.Caterer.email == item.email).first()
+        if existing:
+            errors.append({"email": item.email, "error": "Email already registered"})
+            continue
+
+        try:
+            tags_str = ",".join(item.service_tags or [])
+            caterer = models.Caterer(
+                business_name=item.business_name,
+                owner_name=item.owner_name,
+                email=item.email,
+                mobile=item.mobile,
+                hashed_password=security.hash_password(item.password),
+                address=item.address,
+                city=item.city,
+                state=item.state,
+                zip=item.zip,
+                cuisine_type=item.cuisine_type,
+                bio=item.bio,
+                price_per_guest=item.price_per_guest,
+                service_tags=tags_str,
+                image_url=item.image_url,
+                verified=False,
+                rating=0.0,
+                review_count=0,
+            )
+            db.add(caterer)
+            db.commit()
+            db.refresh(caterer)
+            created.append(caterer_to_out(caterer))
+        except Exception as e:
+            db.rollback()
+            errors.append({"email": item.email, "error": str(e)})
+
+    return {
+        "created_count": len(created),
+        "failed_count": len(errors),
+        "created": created,
+        "errors": errors
+    }
 
 
 # ── List (GET /) ──────────────────────────────────────────────────────────────

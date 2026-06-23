@@ -21,6 +21,7 @@ class CatererCreate(BaseModel):
     bio: Optional[str] = None
     price_per_guest: Optional[float] = None
     service_tags: Optional[List[str]] = []
+    image_url: Optional[str] = None
 
 
 class CatererUpdate(BaseModel):
@@ -193,5 +194,20 @@ class ReviewOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Bulk Upload Schemas ────────────────────────────────────────────────────────
+
+class BulkUploadError(BaseModel):
+    email: str
+    error: str
+
+
+class BulkUploadResponse(BaseModel):
+    created_count: int
+    failed_count: int
+    created: List[CatererOut]
+    errors: List[BulkUploadError]
+
 
 
