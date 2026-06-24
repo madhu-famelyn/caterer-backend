@@ -15,19 +15,19 @@ class Caterer(Base):
     hashed_password = Column(String(255), nullable=False)
 
     # Location
-    address = Column(String(300))
+    address = Column(String(1000))
     city = Column(String(100), index=True)
     state = Column(String(100))
     zip = Column(String(20))
 
     # Business
-    cuisine_type = Column(String(100))
+    cuisine_type = Column(String(500))
     bio = Column(Text)
     price_per_guest = Column(Float, nullable=True)
     service_tags = Column(Text, default="")  # comma-separated
 
     # Public profile
-    image_url = Column(String(500), nullable=True)
+    image_url = Column(Text, nullable=True)
     rating = Column(Float, default=0.0)
     review_count = Column(Integer, default=0)
     verified = Column(Boolean, default=False)
