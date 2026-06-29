@@ -1,11 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from fastapi.staticfiles import StaticFiles
 import models, security
-from database import engine, SessionLocal
+from database import engine, SessionLocal, warmup_db
 from routers import caterers, auth, licenses, certifications, awards, gallery, reviews, upload
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -19,6 +21,11 @@ app = FastAPI(
     description="Backend API for CaterHub Premium Catering Platform",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Warm up Neon DB on server start so first user request doesn't hit a cold-start 503."""
+    warmup_db()
 
 # CORS configuration
 app.add_middleware(
@@ -46,6 +53,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global DB exception handler — catches Neon cold-start / connection errors cleanly
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    err = str(exc)
+    if any(keyword in err.lower() for keyword in ["connection", "operational", "timeout", "ssl", "could not connect"]):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database is waking up, please retry in a few seconds."}
+        )
+    raise exc
+
+
 # Register routers
 app.include_router(caterers.router)
 app.include_router(auth.router)
@@ -64,6 +83,18 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.get("/")
 def read_root():
     return {"message": "Welcome to CaterHub API! Go to /docs for Swagger documentation."}
+
+
+@app.get("/health")
+def health_check():
+    """Ping the DB to wake up Neon if it's sleeping."""
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "ok", "db": "connected"}
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "db_unavailable", "detail": str(e)})
 
 
 # Database Seeding Function
